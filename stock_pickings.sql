@@ -8,6 +8,7 @@ stock_move.product_uom_qty AS "Ilość",
 stock_move.price_unit AS "Cena jednostkowa",
 ROUND(stock_move.product_uom_qty * stock_move.price_unit, 2) AS "Suma"
 FROM stock_picking 
+
 LEFT JOIN stock_move ON stock_move.picking_id = stock_picking.id 
 
 -- W wierszu poniżej należy wprowadzić numerację przesunięć oraz zakres dat ich wykonania.
