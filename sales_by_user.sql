@@ -1,37 +1,23 @@
--- Wykonanie zapytania pobierze plik CSV z listą produktów, ich stanem magazynowym z wybranych stref oraz sprzedażą na podstawie faktur
+-- Wykonanie zapytania pobierze plik CSV zawierający listę użytkowników oraz ilości produktów, które zafakturowali.
 -- Do otwarcia pliku sugerujemy OpenOffice Calc z zestawem znaków UTF-8. W Excel przy domyślnych ustawieniach mogą wystąpić problemy z formatowaniem liczb i polskich znaków.
 
-SELECT 
-DISTINCT(product_stock.default_code) AS "SKU", 
-product_template.name AS "Produkt",
-product_stock.qty AS "Stan magazynowy", 
+SELECT
+res_users.user_mail_name AS "Sprzedawca",
+ROUND(SUM(account_invoice_line.quantity), 0) AS "Suma sprzedanych produktów"
+FROM account_invoice
 
-CASE WHEN ROUND(SUM(account_invoice_line.quantity)) > 0 THEN ROUND(SUM(account_invoice_line.quantity))
-ELSE '0'
-END AS "Sprzedana ilość" 
+LEFT JOIN res_users ON res_users.id = account_invoice.user_id
+LEFT JOIN account_invoice_line ON account_invoice.id = account_invoice_line.invoice_id
 
-FROM 
-( 
-SELECT 
-product_product.id AS product_id, 
-product_product.default_code AS default_code, 
-product_product.product_tmpl_id AS template_id,
-SUM(stock_quant.qty) AS qty
-FROM stock_quant
+WHERE account_invoice.type = 'out_invoice'
+AND  account_invoice.state <> 'draft'
+AND  account_invoice.state <> 'cancel'
+AND res_users.user_mail_name <> 'Administrator IDEAerp'
+-- W wierszu poniżej należy zdefiniować zakres dat wystawienia dokumentów sprzedaży
+AND account_invoice.date_invoice BETWEEN '2021-02-01' AND '2021-02-28'
+-- W wierszach poniżej należy wypisać produkty, które mają być pomijane w raporcie.
+AND account_invoice_line.name NOT ILIKE '%SHIP%'  
 
-LEFT JOIN product_product ON product_product.id = stock_quant.product_id 
+GROUP BY res_users.user_mail_name
 
-WHERE stock_quant.location_id IN (15, 22, 23, 31, 37, 42, 43)
-
-GROUP BY product_product.id, product_product.default_code) AS product_stock
-
-LEFT JOIN account_invoice_line ON account_invoice_line.product_id = product_stock.product_id 
-LEFT JOIN product_template ON product_template.id = product_stock.template_id
-
---- W wierszu poniżej należy zdefiniować zakres dat faktur, z których ma być pobierana sprzedaż
-WHERE account_invoice_line.write_date BETWEEN '2021-10-01' AND '2021-10-31'
-AND account_invoice_line.line_type = 'out_invoice'
-
-GROUP BY product_stock.default_code, product_template.name, product_stock.qty
-
-ORDER BY "Sprzedana ilość" DESC
+ORDER BY res_users.user_mail_name
